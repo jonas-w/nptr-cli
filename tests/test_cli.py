@@ -49,7 +49,7 @@ def test_upload_and_delete(tmp_path, capfd):
         assert out_lines[2].startswith("Token: ")
 
     with patch.object(
-        sys, "argv", ["0x0", "d", out_lines[2].split(" ")[1], out_lines[0]]
+        sys, "argv", ["0x0", "d", out_lines[0], out_lines[2].split(" ")[1]]
     ):
         nptr_cli.nptr.run()
         out, err = capfd.readouterr()

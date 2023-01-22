@@ -129,8 +129,10 @@ class NullPointer:
         """
         if self.log_dir is not None:
             if validators.url(url):
-                url = url.split("/")[-1].split(".")[0]
-            id_file = self.log_dir / url
+                id = url.split("/")[-1].split(".")[0]
+                id_file = self.log_dir / id
+            else:
+                id_file = self.log_dir / url
             if id_file.exists():
                 with open(str(id_file), "r") as id_fd:
                     id_json = json.load(id_fd)
