@@ -1,4 +1,4 @@
-[![Project generated with PyScaffold](https://img.shields.io/badge/-PyScaffold-005CA0?logo=pyscaffold)](https://pyscaffold.org/)
+[![PyPI-Server](https://img.shields.io/pypi/v/nptr-cli.svg)](https://pypi.org/project/nptr-cli/)
 
 # nptr-cli
 
@@ -10,6 +10,7 @@ It also prints the tokens to delete uploads from 0x0.st.
 It also can be used as a library for other python projects.
 
 ## Installation
+The package is on [pypi](https://pypi.org/project/nptr-cli/).
 
 ```shell
 pip install nptr-cli
@@ -52,7 +53,7 @@ The config file is located at `~/.config/0x0/config.toml`.
 These are the default values currently, if nothing is set (See also [#Usage]).
 ```toml
 quiet=false # same as -q/--quiet
-instance=https://0x0.st # same as -i/--instance
+instance="https://0x0.st" # same as -i/--instance
 secret=false # same as -s/--secret
 ```
 
@@ -64,9 +65,9 @@ Aliases work like this:
 [instances]
 
 [instances.my_instance] # now you can use `0x0 -i my_instance`
-url = https://my_instance.tld # it will use this domain
-username = admin # and if you provide a username
-password = admin # and password (which are optional),
+url = "https://my_instance.tld" # it will use this domain
+username = "admin" # and if you provide a username
+password = "admin" # and password (which are optional),
 # it will authenticate via http basic auth
 ````
 

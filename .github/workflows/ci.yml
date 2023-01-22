@@ -70,15 +70,6 @@ jobs:
           TEST_SERVER: ${{ secrets.test_server }}
           TEST_SERVER_USERNAME: ${{ secrets.test_server_username }}
           TEST_SERVER_PASSWORD: ${{ secrets.test_server_password }}
-      - name: Generate coverage report
-        run: pipx run coverage lcov -o coverage.lcov
-      - name: Upload partial coverage report
-        uses: coverallsapp/github-action@master
-        with:
-          path-to-lcov: coverage.lcov
-          github-token: ${{ secrets.github_token }}
-          flag-name: ${{ matrix.platform }} - py${{ matrix.python }}
-          parallel: true
 
   docs:
     needs:
@@ -111,18 +102,8 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v1
 
-  finalize:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Finalize coverage report
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
-
   publish:
-    needs: finalize
+    needs: docs
     if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
