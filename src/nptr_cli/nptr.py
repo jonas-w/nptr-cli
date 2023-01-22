@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import sys
 import warnings
 from pathlib import Path
 from typing import Optional
+from urllib import parse
 
 import _io
 import appdirs
@@ -37,6 +39,7 @@ class NullPointer:
         instance_url: str = "https://0x0.st",
         username: Optional[str] = None,
         password: Optional[str] = None,
+        log_dir: Optional[Path] = None,
     ):
         """Initialize NullPointer with an instance_url.
 
@@ -47,10 +50,16 @@ class NullPointer:
             password (Optional[str]): basic auth password
         """
         self.instance_url = instance_url
+        self.instance_domain = parse.urlparse(self.instance_url)[1]
         if username is not None and password is not None:
             self.auth = HTTPBasicAuth(username, password)
         else:
             self.auth = None
+        self.log_dir = log_dir
+
+        if self.log_dir is not None:
+            self.log_dir = Path(self.log_dir).joinpath(self.instance_domain)
+            self.log_dir.mkdir(exist_ok=True)
 
     def upload(self, file: bytes, filename: str = "file", secret: bool = True):
         """Upload a file to a 0x0 instance.
@@ -83,11 +92,24 @@ class NullPointer:
             auth=self.auth,
         )
         raise_for_status(upload_response)
-        return {
+        response = {
             "url": upload_response.content.decode("UTF-8").strip(),
             "expires": upload_response.headers.get("X-Expires", "no-expires"),
             "token": upload_response.headers.get("X-Token", "no-token"),
         }
+        if self.log_dir is not None:
+            id = response["url"].split("/")[-1].split(".")[0]
+            id_file = self.log_dir.joinpath(id)
+            if id_file.exists():
+                with open(str(id_file), "r") as id_fd:
+                    id_json = json.load(id_fd)
+                    if response["token"] == "no-token":
+                        response["token"] = id_json["token"]
+
+            with open(str(id_file), "w+") as log_file:
+                log_file.write(json.dumps(response))
+
+        return response
 
     def delete(self, url: str, token: str):
         """Delete a file from 0x0.
@@ -105,12 +127,27 @@ class NullPointer:
                 true for success
                 false for failure
         """
+        if self.log_dir is not None:
+            if validators.url(url):
+                url = url.split("/")[-1].split(".")[0]
+            id_file = self.log_dir / url
+            if id_file.exists():
+                with open(str(id_file), "r") as id_fd:
+                    id_json = json.load(id_fd)
+                    url = id_json["url"]
+                    if id_json["token"] != "no-token":
+                        token = id_json["token"]
+        if token is None:
+            return False
+
         delete_response = requests.post(
             url, data={"token": token, "delete": ""}, auth=self.auth
         )
         if delete_response.status_code == 404:
             return False
         raise_for_status(delete_response)
+        if id_file:
+            id_file.unlink(missing_ok=True)
         return True
 
 
@@ -136,6 +173,7 @@ class CLI:
             args.instance,
             args.username if "username" in args else None,
             args.password if "password" in args else None,
+            args.logdir if not args.no_log else None,
         )
         response = npu.upload(input, filename, args.secret)
         print(response["url"])
@@ -155,6 +193,7 @@ class CLI:
             args.instance,
             args.username if "username" in args else None,
             args.password if "password" in args else None,
+            args.logdir if not args.no_log else None,
         )
         if npu.delete(args.url, args.token):
             print(f"Successfully deleted {args.url}")
@@ -164,7 +203,9 @@ class CLI:
 
     @staticmethod
     def parse_config(
-        file: str = appdirs.user_config_dir(appname="0x0") + "/config.toml",
+        file: str = Path(appdirs.user_config_dir(appname="0x0")).joinpath(
+            "config.toml"
+        ),
     ) -> dict:
         """Parses the config file to override defaults."""
         if os.path.isfile(file):
@@ -202,6 +243,24 @@ class CLI:
             help="Alias or URL of the 0x0 instance, the default is 0x0",
             default=config.get("default_instance", "https://0x0.st"),
         )
+        parser.add_argument(
+            "-l",
+            "--logdir",
+            type=argparse_directory,
+            help="Directory to keep track of the urls,"
+            "tokens and expiry times of the stuff you upload."
+            f"(default is {Path(appdirs.user_data_dir(appname='0x0'))})",
+            default=argparse_directory(
+                config.get("logdir", appdirs.user_data_dir(appname="0x0"))
+            ),
+        )
+        parser.add_argument(
+            "-n",
+            "--no-log",
+            action="store_true",
+            help="Disables logging for this upload.",
+            default=config.get("no_logging", False),
+        )
         subparsers = parser.add_subparsers(title="Sub-Command", required=os.isatty(0))
 
         upload_parser = subparsers.add_parser(
@@ -226,13 +285,16 @@ class CLI:
         delete_parser = subparsers.add_parser(
             "delete", aliases=["d", "del"], help="Delete files from 0x0.st."
         )
+
+        delete_parser.add_argument(
+            "url", type=str, help="The url where the file to be deleted is located."
+        )
         delete_parser.add_argument(
             "token",
             type=str,
             help="The token, which was sent back as header X-Token on upload.",
-        )
-        delete_parser.add_argument(
-            "url", type=str, help="The url where the file to be deleted is located."
+            default=None,
+            nargs="?",
         )
         delete_parser.set_defaults(func=CLI.delete)
 
@@ -258,6 +320,11 @@ class CLI:
             exit(1)
 
         return (args, parser)
+
+
+def argparse_directory(dir):
+    os.makedirs(dir, exist_ok=True)
+    return Path(dir)
 
 
 def run():
