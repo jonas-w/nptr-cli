@@ -71,39 +71,8 @@ jobs:
           TEST_SERVER_USERNAME: ${{ secrets.test_server_username }}
           TEST_SERVER_PASSWORD: ${{ secrets.test_server_password }}
 
-  docs:
-    needs:
-      - test
-      - prepare
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with: {python-version: "3.10"}
-      - name: Retrieve pre-built distribution files
-        uses: actions/download-artifact@v3
-        with: {name: python-distribution-files, path: dist/}
-      - name: Build Docs
-        run: >-
-          pipx run tox -e docs
-          --installpkg '${{ needs.prepare.outputs.wheel-distribution }}'
-      - name: Upload docs artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: 'docs/_build/html'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v1
-
   publish:
-    needs: docs
+    needs: test
     if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
