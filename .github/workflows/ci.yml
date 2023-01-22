@@ -106,7 +106,7 @@ jobs:
         uses: actions/deploy-pages@v1
 
   finalize:
-    needs: docs
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Finalize coverage report
